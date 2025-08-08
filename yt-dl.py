@@ -1,5 +1,39 @@
-import os
-import subprocess
+import # URL test (playlist): https://www.youtube.com/playlist?list=PLsJMz620V0MWTBgpGrRhvWcKP0zIbnkq_
+
+# Variable globale pour éviter les exécutions multiples
+_app_initialized = False
+
+# Vérifie si un module est installé (pour les versions compilées, on assume qu'ils sont inclus)
+def install_package(package):
+    try:
+        __import__(package)
+    except ImportError:
+        # En mode compilé, on ne peut pas installer de packages
+        if getattr(sys, 'frozen', False):
+            messagebox.showerror("Erreur", f"Module {package} manquant dans l'exécutable compilé.")
+            return False
+        else:
+            # En mode développement uniquement
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    return True
+
+# Vérifie la présence de yt-dlp (inclus dans l'exécutable compilé)
+def ensure_yt_dlp():
+    try:
+        import yt_dlp
+        return True
+    except ImportError:
+        if getattr(sys, 'frozen', False):
+            messagebox.showerror("Erreur", "yt-dlp manquant dans l'exécutable compilé.")
+            return False
+        else:
+            try:
+                subprocess.run(["yt-dlp", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                return True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                print("Installation de yt-dlp en cours...")
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "yt-dlp"])
+                return Trueocess
 import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -137,7 +171,12 @@ def download():
         download_btn.config(state='normal')
 
 # === Interface graphique ===
-def main():
+def main():        
+    # Protection contre les imports multiples avec PyInstaller
+    if hasattr(main, '_already_running'):
+        return
+    main._already_running = True
+    
     # Installations
     install_package("requests")
     ensure_yt_dlp()
@@ -167,4 +206,7 @@ def main():
     root.mainloop()
 
 if __name__ == "__main__":
+    # Protection nécessaire pour PyInstaller avec multiprocessing
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()
